@@ -107,7 +107,8 @@ unless noted.
 | `/api/loan/get_loan_activity` | POST | `[{loanId, history:[…], …}]` | `transactions`, `payments` |
 | `/api/documents/get_docs` | POST | `{whiteListedDoc:[{…}]}` | `documents` |
 | `/api/messages/get_messages` | GET | `[{messageId, body, …}]` | `messages` |
-| `/api/payment/get_payment_info` | POST | autopay + bank-account model + loan | (read; see note) |
+| `/api/payment/get_payment_info` | POST | ACH status, scheduled payment, funding account, pending payments | `autopay` |
+| `/api/payment/get_bank_accounts` | POST | `[{accountNickName, accountName, routingTransitNumber, accountNumber, …}]` | `methods` |
 
 ### Shapes worth knowing
 
@@ -122,6 +123,14 @@ unless noted.
   prefers the nested one and falls back.
 - The ledger lives at `get_loan_activity[0].history[]`; a borrower payment is a
   row with `transactionType == "Payment"`.
+- **Bank-account payloads are dense with sensitive fields** — raw
+  `routingTransitNumber`, an `unmaskedAccountNumberEncode` blob, `accountName`,
+  and SSN fragments — while `accountNumber` is already masked to the last four.
+  `methods`/`autopay` surface the account holder, routing, and masked account
+  (this is your own data in your own CLI); they skip only the useless bits (the
+  encoded blob, internal ids, and the opaque numeric `bankAccountType`, which
+  is *not* a checking/savings flag). `bankAccountType` has been seen as a large
+  code like `201286`, so never render it as an account type.
 
 ## Writes — catalogued, not implemented
 

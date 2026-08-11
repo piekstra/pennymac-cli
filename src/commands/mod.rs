@@ -2,9 +2,11 @@
 //! mode and a shaped table/kv view in text mode.
 
 pub mod api;
+pub mod autopay;
 pub mod documents;
 pub mod escrow;
 pub mod messages;
+pub mod methods;
 pub mod payments;
 pub mod profile;
 pub mod summary;
@@ -28,6 +30,8 @@ pub const LOANS: &str = "/api/loan/loans";
 pub const LOAN_ACTIVITY: &str = "/api/loan/get_loan_activity";
 pub const DOCUMENTS: &str = "/api/documents/get_docs";
 pub const MESSAGES: &str = "/api/messages/get_messages";
+pub const PAYMENT_INFO: &str = "/api/payment/get_payment_info";
+pub const BANK_ACCOUNTS: &str = "/api/payment/get_bank_accounts";
 
 pub struct Ctx<'a> {
     pub common: &'a CommonArgs,

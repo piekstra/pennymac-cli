@@ -17,7 +17,8 @@ use pk_cli_selfupdate::{SelfUpdateArgs, Updater};
 
 use pmac::client::{CodeChannel, LoginOutcome, Portal};
 use pmac::commands::{
-    api, documents, escrow, messages, payments, profile, summary, transactions, writes, Ctx,
+    api, autopay, documents, escrow, messages, methods, payments, profile, summary, transactions,
+    writes, Ctx,
 };
 use pmac::config::{
     self, Config, DEVICE_ACCOUNT, KEYCHAIN_ACCOUNT, PENDING_ACCOUNT, SESSION_ACCOUNT,
@@ -52,12 +53,17 @@ enum Command {
     Balance,
     /// Escrow balance, monthly components, and tax/insurance disbursements.
     Escrow,
+    /// Automatic-payment (ACH) status: enrollment, next draft, cutoff.
+    Autopay,
     /// The loan ledger: payments, disbursements, interest.
     #[command(subcommand)]
     Transactions(transactions::Cmd),
     /// Posted mortgage payments.
     #[command(subcommand)]
     Payments(payments::Cmd),
+    /// Saved payment methods, masked as the portal masks them.
+    #[command(subcommand)]
+    Methods(methods::Cmd),
     /// Statements, escrow analyses, and tax forms the portal published.
     #[command(subcommand, visible_alias = "statements")]
     Documents(documents::Cmd),
@@ -144,8 +150,10 @@ fn run(cli: &Cli) -> Result<(), CliError> {
         Command::Config(cmd) => config_cmd(cli, cmd, &store),
         Command::Summary | Command::Balance => summary::run(&ctx),
         Command::Escrow => escrow::run(&ctx),
+        Command::Autopay => autopay::run(&ctx),
         Command::Transactions(cmd) => transactions::run(&ctx, cmd),
         Command::Payments(cmd) => payments::run(&ctx, cmd),
+        Command::Methods(cmd) => methods::run(&ctx, cmd),
         Command::Documents(cmd) => documents::run(&ctx, cmd),
         Command::Messages(cmd) => messages::run(&ctx, cmd),
         Command::Profile => profile::run(&ctx),
@@ -176,8 +184,10 @@ fn run(cli: &Cli) -> Result<(), CliError> {
                     "summary",
                     "balance",
                     "escrow",
+                    "autopay",
                     "transactions",
                     "payments",
+                    "methods",
                     "documents",
                     "messages",
                     "profile",

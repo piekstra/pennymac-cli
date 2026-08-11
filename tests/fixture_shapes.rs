@@ -105,6 +105,33 @@ fn profile_reads_the_account_holder() {
     assert_eq!(dto["loan_numbers"], serde_json::json!("1000000000"));
 }
 
+#[test]
+fn autopay_reads_status_the_schedule_and_the_funding_account() {
+    let dto = parse::autopay(&fixture("get_payment_info.json"));
+    assert_eq!(dto["enrolled"], serde_json::json!(true));
+    assert!(is_money(&dto["monthly_payment"]));
+    assert!(is_iso_date(&dto["next_draft_date"]));
+    assert_eq!(dto["can_make_payment"], serde_json::json!(true));
+    assert_eq!(dto["pending_payments"], serde_json::json!(1));
+    // The account autopay draws from — masked account + routing as returned.
+    assert_eq!(dto["draft_account"], serde_json::json!("*****0000"));
+    assert_eq!(dto["draft_routing"], serde_json::json!("000000000"));
+}
+
+#[test]
+fn methods_surface_the_full_account_view_and_drop_removed() {
+    let rows = parse::payment_methods(&fixture("get_bank_accounts.json"));
+    assert_eq!(rows.len(), 1, "the isRemoved=true account is dropped");
+    let m = &rows[0];
+    assert_eq!(m["nickname"], serde_json::json!("Sample Checking"));
+    assert_eq!(m["account_holder"], serde_json::json!("Sample Owner"));
+    assert_eq!(m["routing"], serde_json::json!("000000000"));
+    // The account number as the portal returns it — masked to the last four.
+    assert_eq!(m["account"], serde_json::json!("*****0000"));
+    assert_eq!(m["validated"], serde_json::json!(true));
+    assert!(is_iso_date(&m["last_used"]));
+}
+
 /// A portal redesign should empty a table, not crash the CLI: every parser
 /// must survive shapes it doesn't recognize.
 #[test]
@@ -122,6 +149,8 @@ fn parsers_tolerate_unrecognized_shapes() {
         assert!(parse::documents(&junk).is_empty());
         assert!(parse::messages(&junk).is_empty());
         assert_eq!(parse::profile(&junk), serde_json::json!({}));
+        assert_eq!(parse::autopay(&junk), serde_json::json!({}));
+        assert!(parse::payment_methods(&junk).is_empty());
     }
 }
 
@@ -202,13 +231,16 @@ fn fixtures_carry_no_real_identifiers() {
             );
         }
         for uuid in uuids(&raw) {
+            // An obvious dummy starts with an all-zero prefix; the trailing node
+            // may vary (…0000, …0001) to keep distinct rows distinct. Any real
+            // UUID fails this, since none starts with eight zero digits.
             assert!(
-                uuid.chars().all(|c| c == '0' || c == '-'),
-                "{}: contains a live UUID {uuid} — replace it with the all-zero dummy",
+                uuid.starts_with("00000000-0000-0000-0000-"),
+                "{}: contains a live UUID {uuid} — replace it with a 00000000-… dummy",
                 path.display()
             );
         }
         checked += 1;
     }
-    assert!(checked >= 6, "expected the full fixture set, saw {checked}");
+    assert!(checked >= 8, "expected the full fixture set, saw {checked}");
 }

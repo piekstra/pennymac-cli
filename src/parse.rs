@@ -382,6 +382,93 @@ pub fn profile(account: &Value) -> Value {
     Value::Object(m)
 }
 
+/// Autopay / ACH status out of `/api/payment/get_payment_info`.
+///
+/// Reads **only** the non-sensitive status flags and the current scheduled
+/// payment's amounts and dates. It deliberately never descends into any
+/// `bankAccount` sub-object — those carry raw routing numbers and an encoded
+/// account number that this read-only CLI must not surface. See the negative
+/// assertion in `tests/fixture_shapes.rs`.
+pub fn autopay(info: &Value) -> Value {
+    let mut m = Map::new();
+    if let Some(active) = info.get("isACHActive").and_then(Value::as_bool) {
+        m.insert("enrolled".into(), json!(active));
+    }
+    if let Some(pending) = info.get("isACHPending").and_then(Value::as_bool) {
+        m.insert("enrollment_pending".into(), json!(pending));
+    }
+    // The scheduled payment: amount, extras, and the next dates.
+    let pay = info.get("payment").unwrap_or(&Value::Null);
+    put(&mut m, "monthly_payment", num(pay, "monthlyPaymentAmount"));
+    if let Some(extra) = f64_at(pay, "additionalPrincipalAmount").filter(|v| *v > 0.0) {
+        m.insert(
+            "additional_principal".into(),
+            json!({ "amount": format!("{extra:.2}"), "currency": "USD" }),
+        );
+    }
+    if let Some(extra) = f64_at(pay, "additionalEscrowAmount").filter(|v| *v > 0.0) {
+        m.insert(
+            "additional_escrow".into(),
+            json!({ "amount": format!("{extra:.2}"), "currency": "USD" }),
+        );
+    }
+    put(&mut m, "next_due_date", date_at(pay, "dueDate"));
+    put(
+        &mut m,
+        "next_draft_date",
+        date_at(info, "achProjectFisrtDraftDate"),
+    );
+    // Which account autopay draws from — masked account + routing as returned.
+    let bank = pay.get("bankAccount").unwrap_or(&Value::Null);
+    put(&mut m, "draft_account", str_at(bank, "accountNumber"));
+    put(
+        &mut m,
+        "draft_routing",
+        str_at(bank, "routingTransitNumber"),
+    );
+    put(&mut m, "cutoff_time", str_at(info, "cutOffTimePSTEnd"));
+    if let Some(can) = info.get("canMakePayment").and_then(Value::as_bool) {
+        m.insert("can_make_payment".into(), json!(can));
+    }
+    if let Some(n) = info.get("numberofPendingPayments").and_then(Value::as_i64) {
+        m.insert("pending_payments".into(), json!(n));
+    }
+    Value::Object(m)
+}
+
+/// Saved payment methods out of `/api/payment/get_bank_accounts`.
+///
+/// This is the user reading their own accounts on file, so it surfaces the full
+/// useful view: the label, the account holder, the routing number, the account
+/// number as the portal returns it (already masked to the last four), whether
+/// it's validated, and when it was last used. It skips only fields that carry
+/// no reader value — the encoded/duplicate account blobs, internal ids, and the
+/// opaque numeric `bankAccountType` (which is not a checking/savings flag).
+/// Removed accounts are dropped.
+pub fn payment_methods(accounts: &Value) -> Vec<Value> {
+    accounts
+        .as_array()
+        .map(|rows| {
+            rows.iter()
+                .filter(|a| !a.get("isRemoved").and_then(Value::as_bool).unwrap_or(false))
+                .map(|a| {
+                    let mut m = Map::new();
+                    put(&mut m, "nickname", str_at(a, "accountNickName"));
+                    put(&mut m, "account_holder", str_at(a, "accountName"));
+                    put(&mut m, "routing", str_at(a, "routingTransitNumber"));
+                    // As the portal returns it — masked to the last four.
+                    put(&mut m, "account", str_at(a, "accountNumber"));
+                    if let Some(v) = a.get("isValidated").and_then(Value::as_bool) {
+                        m.insert("validated".into(), json!(v));
+                    }
+                    put(&mut m, "last_used", date_at(a, "lastUsed"));
+                    Value::Object(m)
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
