@@ -103,11 +103,11 @@ unless noted.
 | --- | --- | --- | --- |
 | `/api/session/check_authen_cookie` | GET | `{hasCookie, hasAuth0Cookie}` | session probe |
 | `/api/account/request_token` | GET | profile + `user_access` bearer + `loan_numbers` | `profile`, session bootstrap |
-| `/api/loan/loans` | POST | `{loanSummary:[{…}]}` | `summary`, `balance`, `escrow` |
-| `/api/loan/get_loan_activity` | POST | `[{loanId, history:[…], …}]` | `transactions`, `payments` |
+| `/api/loan/loans` | POST | `{loanSummary:[{…}]}` (~360 fields) | `summary`, `balance`, `loan`, `escrow` |
+| `/api/loan/get_loan_activity` | POST | `[{loanId, history:[…], …}]` | `transactions`, `payments list` |
 | `/api/documents/get_docs` | POST | `{whiteListedDoc:[{…}]}` | `documents` |
 | `/api/messages/get_messages` | GET | `[{messageId, body, …}]` | `messages` |
-| `/api/payment/get_payment_info` | POST | ACH status, scheduled payment, funding account, pending payments | `autopay` |
+| `/api/payment/get_payment_info` | POST | ACH status, scheduled payment, funding account, `pendingPayments[]` | `autopay`, `payments pending` |
 | `/api/payment/get_bank_accounts` | POST | `[{accountNickName, accountName, routingTransitNumber, accountNumber, …}]` | `methods` |
 
 ### Shapes worth knowing
@@ -120,7 +120,15 @@ unless noted.
   `1900-01-01` are "never" sentinels that read as absent.
 - **`loanSummary[0]` has ~360 fields.** The escrow balance and UPB live in a
   nested `balanceSummary` object *and* (sometimes) at the top level; `pmac`
-  prefers the nested one and falls back.
+  prefers the nested one and falls back. `summary` shows the headline numbers;
+  `loan` reads the characteristics (servicer via `organizationServicerSummary`,
+  investor, rate type, terms, `scheduledFirstPaymentDate`, `paymentHistoryPattern`,
+  property, MI). `servicingContractType` can come back as the literal `"N/A"`.
+- **`pendingPayments[]`** in `get_payment_info` are scheduled/in-flight drafts
+  not yet in the ledger — distinct from the posted `get_loan_activity` history.
+  `numberofPendingPayments` counts a *different* set (one-time payments) and can
+  read `0` while a scheduled autopay draft sits in `pendingPayments`, so trust
+  the array, not the counter.
 - The ledger lives at `get_loan_activity[0].history[]`; a borrower payment is a
   row with `transactionType == "Payment"`.
 - **Bank-account payloads are dense with sensitive fields** — raw

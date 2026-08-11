@@ -70,10 +70,12 @@ automatic re-auth when the session lapses — skip the code. On a headless box,
 ```console
 $ pmac summary                     # amount due, due date, balances, rate, property
 $ pmac balance                     # same view, balance-first
+$ pmac loan                        # deep view: servicer, investor, rate type, terms, property, MI
 $ pmac escrow                      # escrow balance, monthly components, tax disbursements
 $ pmac autopay                     # ACH status, next draft, funding account
 $ pmac transactions list --limit 10
 $ pmac payments list --since 2026-01-01
+$ pmac payments pending            # scheduled / in-flight drafts not yet posted
 $ pmac methods list                # saved bank accounts (holder, routing, masked account)
 $ pmac documents list              # statements, escrow analyses, 1098s (alias: statements)
 $ pmac messages list
@@ -111,10 +113,11 @@ for the threat model.
 | `auth login \| status \| logout \| set-credential` | credential + session management |
 | `config path \| show \| set \| unset` | non-secret settings |
 | `summary` / `balance` | amount due, due date, balances, rate, property |
+| `loan` | deep loan view: servicer, investor, rate type, terms, property, MI |
 | `escrow` | escrow balance, monthly components, tax/insurance disbursements |
 | `autopay` | automatic-payment (ACH) status, next draft, funding account |
 | `transactions list` | the full loan ledger |
-| `payments list` | posted mortgage payments |
+| `payments list` / `payments pending` | posted payments / scheduled drafts |
 | `methods list` | saved payment methods (holder, routing, masked account) |
 | `documents list` (`statements`) | statements, escrow analyses, tax forms |
 | `messages list` | message-center notices |

@@ -1,16 +1,33 @@
 {
   "loanSummary": [
     {
+      "organizationServicerSummary": {
+        "organizationName": "Sample Servicer",
+        "servicingContractType": "Sample Contract",
+        "mortgageServicingRightType": "Sample MSR",
+        "investorCode": "000"
+      },
       "armFlag": false,
+      "interestOnlyFlag": false,
       "currentInterestRate": 0.05,
+      "initialInterestRate": 0.05,
       "currentMonthlyPaymentAmount": 1000.0,
       "currentTotalMonthlyPaymentAmount": 1500.0,
       "currentAmortizationTerm": 348,
       "loanAmortizationTerm": 360,
+      "originalAmortizationTerm": 360,
+      "scheduledFirstPaymentDate": "2025-02-01T00:00:00",
+      "interestPaidToDate": "2026-02-01T00:00:00",
+      "paymentHistoryPattern": "0000000000000000000000",
       "loanMaturityDate": "2055-01-01T00:00:00",
       "originalLoanAmount": 200000.0,
       "nextPaymentDueDate": "2026-02-01T00:00:00",
       "lastPaymentReceivedDate": "2026-01-05T00:00:00",
+      "propertyOccupancyTypeDesc": "Original Owner",
+      "propertyFinancedNumberOfUnits": 1,
+      "propertyStructureBuiltYear": "2024",
+      "propertyAppraisedValueAmount": 210000.0,
+      "originalPropertyValueAmount": 205000.0,
       "delinquentPaymentCount": 0,
       "yearToDatePrincipalPaidAmount": 100.0,
       "yearToDateTotalInterestPaidAmount": 200.0,

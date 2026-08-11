@@ -5,6 +5,7 @@ pub mod api;
 pub mod autopay;
 pub mod documents;
 pub mod escrow;
+pub mod loan;
 pub mod messages;
 pub mod methods;
 pub mod payments;

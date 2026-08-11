@@ -16,9 +16,12 @@ const COMMANDS: &[&str] = &[
     "config",
     "summary",
     "balance",
+    "loan",
     "escrow",
+    "autopay",
     "transactions",
     "payments",
+    "methods",
     "documents",
     "messages",
     "profile",
@@ -30,7 +33,13 @@ const COMMANDS: &[&str] = &[
 ];
 
 /// Command groups with `list` subcommands that must carry the `ls` alias.
-const LIST_GROUPS: &[&str] = &["transactions", "payments", "documents", "messages"];
+const LIST_GROUPS: &[&str] = &[
+    "transactions",
+    "payments",
+    "methods",
+    "documents",
+    "messages",
+];
 
 #[test]
 fn top_level_help_lists_every_command() {
@@ -55,6 +64,14 @@ fn list_subcommands_all_have_the_ls_alias() {
     for group in LIST_GROUPS {
         pmac().args([group, "ls", "--help"]).assert().success();
     }
+}
+
+#[test]
+fn payments_pending_subcommand_renders() {
+    pmac()
+        .args(["payments", "pending", "--help"])
+        .assert()
+        .success();
 }
 
 #[test]

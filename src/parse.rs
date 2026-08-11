@@ -469,6 +469,171 @@ pub fn payment_methods(accounts: &Value) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// A money DTO from a raw float, when it's present and non-zero.
+fn money_if_positive(v: &Value, key: &str) -> Option<Value> {
+    f64_at(v, key)
+        .filter(|n| *n > 0.0)
+        .map(|n| json!({ "amount": format!("{n:.2}"), "currency": "USD" }))
+}
+
+/// Scheduled / in-flight payments out of `pendingPayments[]` in
+/// `/api/payment/get_payment_info` — the drafts the portal will make (or is
+/// processing) but that haven't posted to the ledger yet. Distinct from
+/// `payments list`, which reads the posted ledger.
+pub fn pending_payments(info: &Value) -> Vec<Value> {
+    info.get("pendingPayments")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .map(|p| {
+                    let mut m = Map::new();
+                    put(&mut m, "effective_date", date_at(p, "effectiveDate"));
+                    put(&mut m, "due_date", date_at(p, "dueDate"));
+                    put(&mut m, "amount", num(p, "totalDraftAmount"));
+                    put(
+                        &mut m,
+                        "additional_principal",
+                        money_if_positive(p, "additionalPrincipalAmount"),
+                    );
+                    put(
+                        &mut m,
+                        "additional_escrow",
+                        money_if_positive(p, "additionalEscrowAmount"),
+                    );
+                    put(&mut m, "confirmation", str_at(p, "displayedConfirmationId"));
+                    if let Some(c) = p.get("canCancel").and_then(Value::as_bool) {
+                        m.insert("cancelable".into(), json!(c));
+                    }
+                    // The funding account, as the portal returns it (masked).
+                    let bank = p.get("bankAccount").unwrap_or(&Value::Null);
+                    put(&mut m, "draft_account", str_at(bank, "accountNumber"));
+                    put(&mut m, "scheduled_on", date_at(p, "created"));
+                    Value::Object(m)
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The deep loan view out of `/api/loan/loans`: the characteristics behind the
+/// `summary` numbers — servicer, investor, rate type, terms, key dates, the
+/// property, mortgage insurance, and the payment-history pattern.
+pub fn loan_detail(loans: &Value) -> Value {
+    let Some(s) = summary_obj(loans) else {
+        return json!({});
+    };
+    let svc = s.get("organizationServicerSummary").unwrap_or(&Value::Null);
+    let mut m = Map::new();
+
+    put(&mut m, "servicer", str_at(svc, "organizationName"));
+    put(
+        &mut m,
+        "servicing_type",
+        str_at(svc, "servicingContractType"),
+    );
+    put(&mut m, "investor", str_at(s, "investorName"));
+    put(&mut m, "investor_code", str_at(s, "investorCode"));
+
+    if let Some(rate) = f64_at(s, "currentInterestRate").filter(|r| *r > 0.0) {
+        m.insert(
+            "interest_rate".into(),
+            json!(format!("{:.3}%", rate * 100.0)),
+        );
+    }
+    if let Some(rate) = f64_at(s, "initialInterestRate").filter(|r| *r > 0.0) {
+        m.insert(
+            "original_rate".into(),
+            json!(format!("{:.3}%", rate * 100.0)),
+        );
+    }
+    if let Some(arm) = s.get("armFlag").and_then(Value::as_bool) {
+        m.insert("adjustable_rate".into(), json!(arm));
+    }
+    if let Some(io) = s.get("interestOnlyFlag").and_then(Value::as_bool) {
+        m.insert("interest_only".into(), json!(io));
+    }
+
+    put(&mut m, "original_amount", num(s, "originalLoanAmount"));
+    put(
+        &mut m,
+        "monthly_principal_interest",
+        num(s, "currentMonthlyPaymentAmount"),
+    );
+    put(
+        &mut m,
+        "monthly_total",
+        num(s, "currentTotalMonthlyPaymentAmount"),
+    );
+    if let Some(t) = s.get("loanAmortizationTerm").and_then(Value::as_i64) {
+        m.insert("term_months".into(), json!(t));
+    }
+    if let Some(t) = s.get("currentAmortizationTerm").and_then(Value::as_i64) {
+        m.insert("remaining_term_months".into(), json!(t));
+    }
+
+    put(
+        &mut m,
+        "first_payment_date",
+        date_at(s, "scheduledFirstPaymentDate"),
+    );
+    put(&mut m, "next_due_date", date_at(s, "nextPaymentDueDate"));
+    put(&mut m, "interest_paid_to", date_at(s, "interestPaidToDate"));
+    put(&mut m, "maturity_date", date_at(s, "loanMaturityDate"));
+
+    if let Some(count) = s.get("delinquentPaymentCount").and_then(Value::as_i64) {
+        m.insert("delinquent_payments".into(), json!(count));
+    }
+    // A right-to-left run of month codes ('0' = paid on time); handy raw.
+    put(
+        &mut m,
+        "payment_history",
+        str_at(s, "paymentHistoryPattern"),
+    );
+
+    put(
+        &mut m,
+        "monthly_mortgage_insurance",
+        num(s, "monthlyMortgageInsuranceAmount"),
+    );
+    put(
+        &mut m,
+        "mi_next_due",
+        date_at(s, "mortgageInsuranceNextPremiumDueDate"),
+    );
+
+    put(
+        &mut m,
+        "property_address",
+        property_address(s).map(Value::String),
+    );
+    put(&mut m, "county", str_at(s, "propertyCountyCode"));
+    put(&mut m, "occupancy", str_at(s, "propertyOccupancyTypeDesc"));
+    if let Some(units) = s
+        .get("propertyFinancedNumberOfUnits")
+        .and_then(Value::as_i64)
+    {
+        m.insert("units".into(), json!(units));
+    }
+    put(
+        &mut m,
+        "year_built",
+        str_at(s, "propertyStructureBuiltYear"),
+    );
+    put(
+        &mut m,
+        "appraised_value",
+        num(s, "propertyAppraisedValueAmount"),
+    );
+    put(
+        &mut m,
+        "original_value",
+        num(s, "originalPropertyValueAmount"),
+    );
+
+    put(&mut m, "escrow_enrolled", s.get("escrowFlag").cloned());
+    Value::Object(m)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

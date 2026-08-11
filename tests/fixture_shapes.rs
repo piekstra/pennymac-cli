@@ -119,6 +119,35 @@ fn autopay_reads_status_the_schedule_and_the_funding_account() {
 }
 
 #[test]
+fn loan_detail_surfaces_the_characteristics() {
+    let dto = parse::loan_detail(&fixture("loans.json"));
+    assert_eq!(dto["servicer"], serde_json::json!("Sample Servicer"));
+    assert_eq!(dto["investor"], serde_json::json!("Sample Investor"));
+    assert_eq!(dto["interest_rate"], serde_json::json!("5.000%"));
+    assert!(is_iso_date(&dto["first_payment_date"]));
+    assert!(is_iso_date(&dto["maturity_date"]));
+    assert!(is_money(&dto["appraised_value"]));
+    assert_eq!(dto["occupancy"], serde_json::json!("Original Owner"));
+    assert_eq!(dto["units"], serde_json::json!(1));
+    assert_eq!(
+        dto["payment_history"],
+        serde_json::json!("0000000000000000000000")
+    );
+}
+
+#[test]
+fn pending_payments_read_the_scheduled_drafts() {
+    let rows = parse::pending_payments(&fixture("get_payment_info.json"));
+    assert_eq!(rows.len(), 1);
+    let p = &rows[0];
+    assert!(is_iso_date(&p["effective_date"]));
+    assert!(is_money(&p["amount"]));
+    assert_eq!(p["confirmation"], serde_json::json!("SAMPLE-0001"));
+    assert_eq!(p["cancelable"], serde_json::json!(true));
+    assert_eq!(p["draft_account"], serde_json::json!("*****0000"));
+}
+
+#[test]
 fn methods_surface_the_full_account_view_and_drop_removed() {
     let rows = parse::payment_methods(&fixture("get_bank_accounts.json"));
     assert_eq!(rows.len(), 1, "the isRemoved=true account is dropped");
@@ -151,6 +180,8 @@ fn parsers_tolerate_unrecognized_shapes() {
         assert_eq!(parse::profile(&junk), serde_json::json!({}));
         assert_eq!(parse::autopay(&junk), serde_json::json!({}));
         assert!(parse::payment_methods(&junk).is_empty());
+        assert_eq!(parse::loan_detail(&junk), serde_json::json!({}));
+        assert!(parse::pending_payments(&junk).is_empty());
     }
 }
 

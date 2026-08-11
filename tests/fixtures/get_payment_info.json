@@ -10,6 +10,25 @@
   "achProjectFisrtDraftDate": "2026-02-01T00:00:00",
   "numberofPendingPayments": 1,
   "hasSavedBankAccounts": true,
+  "pendingPayments": [
+    {
+      "totalDraftAmount": 1500.0,
+      "additionalPrincipalAmount": 0.0,
+      "additionalEscrowAmount": 0.0,
+      "dueDate": "2026-02-01T00:00:00",
+      "effectiveDate": "2026-02-01T00:00:00",
+      "created": "2026-01-15T00:00:00",
+      "displayedConfirmationId": "SAMPLE-0001",
+      "canCancel": true,
+      "isAch": true,
+      "status": 1,
+      "bankAccount": {
+        "accountNumber": "*****0000",
+        "routingTransitNumber": "000000000",
+        "accountNickName": "Sample Checking"
+      }
+    }
+  ],
   "payment": {
     "monthlyPaymentAmount": 1500.0,
     "additionalPrincipalAmount": 0.0,

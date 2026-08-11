@@ -17,8 +17,8 @@ use pk_cli_selfupdate::{SelfUpdateArgs, Updater};
 
 use pmac::client::{CodeChannel, LoginOutcome, Portal};
 use pmac::commands::{
-    api, autopay, documents, escrow, messages, methods, payments, profile, summary, transactions,
-    writes, Ctx,
+    api, autopay, documents, escrow, loan, messages, methods, payments, profile, summary,
+    transactions, writes, Ctx,
 };
 use pmac::config::{
     self, Config, DEVICE_ACCOUNT, KEYCHAIN_ACCOUNT, PENDING_ACCOUNT, SESSION_ACCOUNT,
@@ -51,6 +51,8 @@ enum Command {
     Summary,
     /// Same overview as `summary` — the balance-first entry point.
     Balance,
+    /// Deep loan view: servicer, investor, rate type, terms, property, MI.
+    Loan,
     /// Escrow balance, monthly components, and tax/insurance disbursements.
     Escrow,
     /// Automatic-payment (ACH) status: enrollment, next draft, cutoff.
@@ -149,6 +151,7 @@ fn run(cli: &Cli) -> Result<(), CliError> {
         Command::Auth(cmd) => auth(cli, cmd, &store, &creds, &cfg),
         Command::Config(cmd) => config_cmd(cli, cmd, &store),
         Command::Summary | Command::Balance => summary::run(&ctx),
+        Command::Loan => loan::run(&ctx),
         Command::Escrow => escrow::run(&ctx),
         Command::Autopay => autopay::run(&ctx),
         Command::Transactions(cmd) => transactions::run(&ctx, cmd),
@@ -183,6 +186,7 @@ fn run(cli: &Cli) -> Result<(), CliError> {
                 &[
                     "summary",
                     "balance",
+                    "loan",
                     "escrow",
                     "autopay",
                     "transactions",
