@@ -75,6 +75,34 @@ fn payments_pending_subcommand_renders() {
 }
 
 #[test]
+fn documents_download_subcommand_and_its_alias_render() {
+    pmac()
+        .args(["documents", "download", "--help"])
+        .assert()
+        .success();
+    // `get` is the download alias.
+    pmac()
+        .args(["documents", "get", "--help"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn documents_download_requires_an_id() {
+    // The id is positional and mandatory; omitting it is a usage error, caught
+    // before any network or keychain access.
+    pmac().args(["documents", "download"]).assert().code(2);
+}
+
+#[test]
+fn documents_download_id_must_be_numeric() {
+    pmac()
+        .args(["documents", "download", "not-a-number"])
+        .assert()
+        .code(2);
+}
+
+#[test]
 fn version_prints_the_crate_version() {
     pmac()
         .arg("--version")

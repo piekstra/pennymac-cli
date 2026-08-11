@@ -78,6 +78,7 @@ $ pmac payments list --since 2026-01-01
 $ pmac payments pending            # scheduled / in-flight drafts not yet posted
 $ pmac methods list                # saved bank accounts (holder, routing, masked account)
 $ pmac documents list              # statements, escrow analyses, 1098s (alias: statements)
+$ pmac documents download <id>     # save that statement/1098 as a PDF (-o path, or - for stdout)
 $ pmac messages list
 $ pmac profile                     # the account holder on file
 $ pmac summary --json | jq .amount_due
@@ -120,6 +121,7 @@ for the threat model.
 | `payments list` / `payments pending` | posted payments / scheduled drafts |
 | `methods list` | saved payment methods (holder, routing, masked account) |
 | `documents list` (`statements`) | statements, escrow analyses, tax forms |
+| `documents download` (`get`) | save a document to a PDF (path, directory, or stdout) |
 | `messages list` | message-center notices |
 | `profile` | the account holder on file |
 | `writes` | the mutating endpoints this CLI won't call |

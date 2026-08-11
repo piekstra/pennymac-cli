@@ -502,6 +502,45 @@ impl Portal {
         self.post_json(path, &json!({ "loanId": loan }))
     }
 
+    /// Download a published document's bytes.
+    ///
+    /// A read: it fetches an already-published file and is absent from the
+    /// [`crate::writes`] catalog. The portal streams the file as base64 *text*
+    /// from `get_docs_stream_download` — its own web app reads the body with
+    /// `.text()` and hands it to a `data:;base64,` download URL — so we decode
+    /// that text to the real bytes. `filName` (the portal's spelling) mirrors
+    /// the field the front end posts.
+    pub fn download_doc(&self, doc_id: i64, file_name: &str) -> Result<Vec<u8>, CliError> {
+        self.ensure_token()?;
+        let loan = self.loan_id()?;
+        let bearer = self.bearer();
+        let path = "/api/documents/get_docs_stream_download";
+        let body = json!({ "docId": doc_id, "loanId": loan, "filName": file_name });
+        let resp = self
+            .http
+            .post(self.url(path))
+            .header("Accept", "*/*")
+            .header("Origin", self.base.trim_end_matches('/'))
+            .bearer_auth(bearer.expose())
+            .json(&body)
+            .send()
+            .map_err(|e| CliError::Upstream(format!("POST {path} failed: {e}")))?;
+        let text = self.handle(resp, path)?;
+        self.sync_session();
+        if text.trim_start().starts_with('<') {
+            return Err(CliError::Auth(
+                "portal returned HTML instead of the document (session expired) — \
+                 run `pmac auth login`"
+                    .into(),
+            ));
+        }
+        base64_decode(text.trim()).ok_or_else(|| {
+            CliError::Upstream(format!(
+                "portal returned an undecodable document body for doc {doc_id}"
+            ))
+        })
+    }
+
     fn bearer(&self) -> Secret {
         Secret::new(
             self.token
@@ -701,6 +740,52 @@ fn base64_encode(input: &[u8]) -> String {
     out
 }
 
+/// Decode standard base64 (padding optional, embedded whitespace ignored) to
+/// bytes. The mirror of [`base64_encode`], for the document stream the portal
+/// hands back as base64 text.
+fn base64_decode(input: &str) -> Option<Vec<u8>> {
+    fn val(b: u8) -> Option<u32> {
+        match b {
+            b'A'..=b'Z' => Some((b - b'A') as u32),
+            b'a'..=b'z' => Some((b - b'a' + 26) as u32),
+            b'0'..=b'9' => Some((b - b'0' + 52) as u32),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            _ => None,
+        }
+    }
+    let mut out = Vec::with_capacity(input.len() / 4 * 3);
+    let mut acc = 0u32;
+    let mut groups = 0u32; // 6-bit groups accumulated toward the next triplet
+    for &b in input.as_bytes() {
+        if b == b'=' {
+            break;
+        }
+        if b.is_ascii_whitespace() {
+            continue;
+        }
+        acc = (acc << 6) | val(b)?;
+        groups += 1;
+        if groups == 4 {
+            out.push((acc >> 16) as u8);
+            out.push((acc >> 8) as u8);
+            out.push(acc as u8);
+            acc = 0;
+            groups = 0;
+        }
+    }
+    match groups {
+        0 => {}
+        2 => out.push((acc >> 4) as u8),
+        3 => {
+            out.push((acc >> 10) as u8);
+            out.push((acc >> 2) as u8);
+        }
+        _ => return None, // a lone trailing 6-bit group can't form a byte
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -742,6 +827,26 @@ mod tests {
         assert_eq!(base64_encode(b"fo"), "Zm8=");
         assert_eq!(base64_encode(b"foo"), "Zm9v");
         assert_eq!(base64_encode(b"foobar"), "Zm9vYmFy");
+    }
+
+    #[test]
+    fn base64_decode_inverts_encode_and_tolerates_the_portals_quirks() {
+        // Round-trips every remainder class, including binary bytes a PDF has.
+        for sample in [
+            b"".as_slice(),
+            b"f",
+            b"fo",
+            b"foo",
+            b"foobar",
+            b"%PDF-1.7\n\x00\x01\x02\xfe\xff",
+        ] {
+            assert_eq!(base64_decode(&base64_encode(sample)).unwrap(), sample);
+        }
+        // Padding is optional and embedded newlines (a streamed body) are fine.
+        assert_eq!(base64_decode("Zm9v\nYmFy").unwrap(), b"foobar");
+        assert_eq!(base64_decode("Zg").unwrap(), b"f");
+        // A stray non-base64 byte is rejected rather than silently mangled.
+        assert!(base64_decode("Zm9v!").is_none());
     }
 
     #[test]

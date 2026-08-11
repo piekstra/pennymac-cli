@@ -105,7 +105,8 @@ unless noted.
 | `/api/account/request_token` | GET | profile + `user_access` bearer + `loan_numbers` | `profile`, session bootstrap |
 | `/api/loan/loans` | POST | `{loanSummary:[{…}]}` (~360 fields) | `summary`, `balance`, `loan`, `escrow` |
 | `/api/loan/get_loan_activity` | POST | `[{loanId, history:[…], …}]` | `transactions`, `payments list` |
-| `/api/documents/get_docs` | POST | `{whiteListedDoc:[{…}]}` | `documents` |
+| `/api/documents/get_docs` | POST | `{whiteListedDoc:[{…}]}` | `documents list` |
+| `/api/documents/get_docs_stream_download` | POST | the file, as **base64 text** | `documents download` |
 | `/api/messages/get_messages` | GET | `[{messageId, body, …}]` | `messages` |
 | `/api/payment/get_payment_info` | POST | ACH status, scheduled payment, funding account, `pendingPayments[]` | `autopay`, `payments pending` |
 | `/api/payment/get_bank_accounts` | POST | `[{accountNickName, accountName, routingTransitNumber, accountNumber, …}]` | `methods` |
@@ -131,6 +132,14 @@ unless noted.
   the array, not the counter.
 - The ledger lives at `get_loan_activity[0].history[]`; a borrower payment is a
   row with `transactionType == "Payment"`.
+- **Document download** (`get_docs_stream_download`) breaks the `{"loanId"}`
+  convention: it posts `{docId, loanId, filName}` — `filName` is the portal's
+  own misspelling, carrying the `fileName` from `get_docs` — and returns the
+  file as a **base64 string**, not binary and not JSON. The portal's own web
+  app reads the body with `.text()` and hands it to a `data:;base64,` download
+  URL; `pmac` decodes it to bytes and writes the file. `get_docs_stream` is the
+  inline-view sibling. Both are reads (they fetch already-published files) and
+  neither is in the write catalog.
 - **Bank-account payloads are dense with sensitive fields** — raw
   `routingTransitNumber`, an `unmaskedAccountNumberEncode` blob, `accountName`,
   and SSN fragments — while `accountNumber` is already masked to the last four.
