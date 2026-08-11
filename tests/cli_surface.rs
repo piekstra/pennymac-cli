@@ -88,10 +88,35 @@ fn documents_download_subcommand_and_its_alias_render() {
 }
 
 #[test]
-fn documents_download_requires_an_id() {
-    // The id is positional and mandatory; omitting it is a usage error, caught
-    // before any network or keychain access.
-    pmac().args(["documents", "download"]).assert().code(2);
+fn documents_open_and_download_all_render() {
+    pmac()
+        .args(["documents", "open", "--help"])
+        .assert()
+        .success();
+    pmac()
+        .args(["documents", "download", "--all", "--help"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn documents_download_requires_an_id_or_all() {
+    // Neither an id nor --all is a usage error, caught before any network or
+    // keychain access.
+    pmac()
+        .args(["documents", "download"])
+        .assert()
+        .code(2)
+        .stderr(contains("--all"));
+}
+
+#[test]
+fn documents_download_id_and_all_conflict() {
+    // clap rejects the contradiction before the command runs.
+    pmac()
+        .args(["documents", "download", "123", "--all"])
+        .assert()
+        .code(2);
 }
 
 #[test]

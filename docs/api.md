@@ -106,7 +106,7 @@ unless noted.
 | `/api/loan/loans` | POST | `{loanSummary:[{…}]}` (~360 fields) | `summary`, `balance`, `loan`, `escrow` |
 | `/api/loan/get_loan_activity` | POST | `[{loanId, history:[…], …}]` | `transactions`, `payments list` |
 | `/api/documents/get_docs` | POST | `{whiteListedDoc:[{…}]}` | `documents list` |
-| `/api/documents/get_docs_stream_download` | POST | the file, as **base64 text** | `documents download` |
+| `/api/documents/get_docs_stream_download` | POST | the file, as **base64 text** | `documents download`, `documents open` |
 | `/api/messages/get_messages` | GET | `[{messageId, body, …}]` | `messages` |
 | `/api/payment/get_payment_info` | POST | ACH status, scheduled payment, funding account, `pendingPayments[]` | `autopay`, `payments pending` |
 | `/api/payment/get_bank_accounts` | POST | `[{accountNickName, accountName, routingTransitNumber, accountNumber, …}]` | `methods` |
