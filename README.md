@@ -8,9 +8,22 @@ transactions, and documents, as JSON or tables, Keychain-secured.
 The portal's write surface is catalogued (`pmac writes`) but deliberately
 unimplemented.
 
-> Unofficial. Not affiliated with or endorsed by PennyMac. It talks to the same
-> undocumented endpoints the website's own front end uses (see
-> [`docs/api.md`](docs/api.md)), so a portal redesign can break it.
+> ### ⚠️ Unofficial — read before you use it
+>
+> This is an independent, unofficial tool. It is **not affiliated with,
+> authorized, endorsed by, or sponsored by PennyMac** or any of its entities;
+> "PennyMac" and "Pennymac" are trademarks of their respective owners, used
+> here only to describe what the tool talks to.
+>
+> It works by calling the same **undocumented** endpoints the portal's own web
+> front end uses (see [`docs/api.md`](docs/api.md)), so a portal change can
+> break it without notice. Automated access may be restricted by PennyMac's
+> Terms of Service — **you are responsible for your own use** and for ensuring
+> it complies with any agreement you have with them. It only ever logs in as
+> **you**, with **your** credentials, to read **your own** account.
+>
+> Provided as-is, with no warranty, under the licenses below. Use at your own
+> risk.
 
 Conforms to the **piekstra-cli/1** spec: `--json` on every command, standard
 `auth` / `config` / `self-update` / `completions` / `info`, keychain-only
