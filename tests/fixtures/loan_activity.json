@@ -1,0 +1,43 @@
+[
+  {
+    "loanId": 1000000000,
+    "startDate": "2025-01-01T00:00:00",
+    "endDate": "2026-01-05T00:00:00",
+    "paymentBreakdownVisible": true,
+    "allTransactionsVisible": true,
+    "history": [
+      {
+        "loanId": 1000000000,
+        "effectiveDate": "2026-01-05T00:00:00",
+        "dueDate": "2026-01-01T00:00:00",
+        "transactCode": "1043",
+        "transactionType": "Escrow Disbursement",
+        "transactionCodeDesc": "Mortgage Insurance Disbursement",
+        "transactionGroupCode": "70",
+        "transactionAmount": -50.0,
+        "principalAmount": 0.0,
+        "interestAmount": 0.0,
+        "escrowAmount": -50.0,
+        "principalBalance": 190000.0,
+        "escrowBalance": 500.0,
+        "transactionId": 900000001
+      },
+      {
+        "loanId": 1000000000,
+        "effectiveDate": "2026-01-05T00:00:00",
+        "dueDate": "2026-01-01T00:00:00",
+        "transactCode": "0001",
+        "transactionType": "Payment",
+        "transactionCodeDesc": "Payment",
+        "transactionGroupCode": "10",
+        "transactionAmount": 1500.0,
+        "principalAmount": 400.0,
+        "interestAmount": 800.0,
+        "escrowAmount": 300.0,
+        "principalBalance": 190000.0,
+        "escrowBalance": 500.0,
+        "transactionId": 900000002
+      }
+    ]
+  }
+]

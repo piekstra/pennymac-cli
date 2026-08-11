@@ -1,0 +1,29 @@
+{
+  "index_borrower_id": "0",
+  "user_access": "v2:0000000000000000000000000000000000000000000000000000000000000000",
+  "loan_numbers": "1000000000",
+  "all_loan_numbers": null,
+  "user_name": "sampleuser",
+  "user_profile": {
+    "user_id": "00000000-0000-0000-0000-000000000000",
+    "username": "sampleuser",
+    "selected_tfa_type": "sms",
+    "verified_email": "sample@example.com",
+    "verified_phone_number": "0000000000",
+    "phone_number_tcpa": false,
+    "ip_address": "0.0.0.0",
+    "is_active": true,
+    "login_count": 1,
+    "first_name": "Sample",
+    "last_name": "Owner",
+    "customer_id": "0",
+    "last_four_ssn": "0000",
+    "loan_numbers": "1000000000",
+    "partner_sso": null
+  },
+  "is_appstore_tester": false,
+  "is_logged_in": true,
+  "server_time": "2026-01-20T00:00:00",
+  "reviews": [],
+  "showComunicationPreferenceChangeBanner": false
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "idsUserId": "00000000-0000-0000-0000-000000000000",
+    "messageId": 900000020,
+    "parentMessageId": 0,
+    "body": "Dear Sample Owner ,<br><br> Your Monthly Statement is now available for online viewing.<br><br>",
+    "receivedDateTimeUtc": "2026-01-19T00:00:00",
+    "readDateTimeUtc": null,
+    "expiresOn": 0,
+    "subjectLID": 1,
+    "statusLID": 1,
+    "messageTypeLID": 1,
+    "documentId": 0,
+    "loanId": 1000000000,
+    "messageRead": false,
+    "attachment": [],
+    "firstName": "Sample",
+    "lastName": "Owner"
+  },
+  {
+    "idsUserId": "00000000-0000-0000-0000-000000000000",
+    "messageId": 900000021,
+    "parentMessageId": 0,
+    "body": "Dear Sample Owner ,<br><br> Your Escrow Analysis is now available for online viewing.<br><br>",
+    "receivedDateTimeUtc": "2025-11-02T00:00:00",
+    "readDateTimeUtc": "2025-11-03T00:00:00",
+    "expiresOn": 0,
+    "subjectLID": 1,
+    "statusLID": 1,
+    "messageTypeLID": 1,
+    "documentId": 0,
+    "loanId": 1000000000,
+    "messageRead": true,
+    "attachment": [],
+    "firstName": "Sample",
+    "lastName": "Owner"
+  }
+]

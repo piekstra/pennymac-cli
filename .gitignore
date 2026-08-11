@@ -1,0 +1,4 @@
+/target
+.twapp-*
+# Raw portal captures never enter the repo — scrubbed fixtures only.
+/captures

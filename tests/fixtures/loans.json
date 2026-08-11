@@ -1,0 +1,53 @@
+{
+  "loanSummary": [
+    {
+      "armFlag": false,
+      "currentInterestRate": 0.05,
+      "currentMonthlyPaymentAmount": 1000.0,
+      "currentTotalMonthlyPaymentAmount": 1500.0,
+      "currentAmortizationTerm": 348,
+      "loanAmortizationTerm": 360,
+      "loanMaturityDate": "2055-01-01T00:00:00",
+      "originalLoanAmount": 200000.0,
+      "nextPaymentDueDate": "2026-02-01T00:00:00",
+      "lastPaymentReceivedDate": "2026-01-05T00:00:00",
+      "delinquentPaymentCount": 0,
+      "yearToDatePrincipalPaidAmount": 100.0,
+      "yearToDateTotalInterestPaidAmount": 200.0,
+      "yearToDateEscrowPaid": 0.0,
+      "escrowFlag": true,
+      "escrowBalanceAmount": 500.0,
+      "monthlyMortgageInsuranceAmount": 50.0,
+      "monthlyHazardInsuranceAmount": 100.0,
+      "monthlyCountyTaxAmount": 300.0,
+      "monthlyCityTaxAmount": 0.0,
+      "lastEscrowAnalysisDate": "2025-11-01T00:00:00",
+      "lastEscrowAnalysisOverShortAmount": 0.0,
+      "mortgageInsuranceNextPremiumDueDate": "2026-02-01T00:00:00",
+      "propertyAddressLine1": "1 Sample St",
+      "propertyAddressLine2": null,
+      "propertyLocality": "Sample City",
+      "propertyRegion": "ST",
+      "propertyPostalCode": "00000",
+      "propertyCountyCode": "SAMPLE",
+      "investorName": "Sample Investor",
+      "investorCode": "000",
+      "escrowTax": [
+        {
+          "taxAuthorityType": "County",
+          "taxNextDisbursementDueDate": "2026-11-01T00:00:00",
+          "taxProjectedDisbursementAmount": 3600.0,
+          "taxEscrowedFlag": true
+        }
+      ],
+      "balanceSummary": {
+        "unpaidPrincipalBalanceAmount": 190000.0,
+        "escrowBalanceAmount": 500.0,
+        "balanceDate": "2026-01-05T00:00:00",
+        "loanId": 1000000000,
+        "isValid": true,
+        "errorMessage": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "availableDcos": {
+    "Note": 1,
+    "Mortgage or Deed of Trust": 1
+  },
+  "whiteListedDoc": [
+    {
+      "fileDisplayName": null,
+      "fileName": "900000010.pdf",
+      "docTypeFriendly_ES": "Estado de Cuenta Mensual",
+      "docTypeFriendly": "Monthly Statement",
+      "docType": "BILLING STMT",
+      "docTypeCategory": null,
+      "effectiveUTC": "2026-01-12T00:00:00",
+      "createdUTC": "2026-01-12T00:00:00",
+      "loanId": 1000000000,
+      "docId": 900000010,
+      "docTypeId": 53,
+      "uploaded": "2026-01-18T20:34:47.04",
+      "modifiedDate": "2026-01-18T20:34:47.04"
+    },
+    {
+      "fileDisplayName": null,
+      "fileName": "900000011.pdf",
+      "docTypeFriendly_ES": "Analisis de Deposito en Garantia",
+      "docTypeFriendly": "Escrow Analysis",
+      "docType": "ESCROW ANALYSIS",
+      "docTypeCategory": null,
+      "effectiveUTC": "2025-11-01T00:00:00",
+      "createdUTC": "2025-11-01T00:00:00",
+      "loanId": 1000000000,
+      "docId": 900000011,
+      "docTypeId": 71,
+      "uploaded": "2025-11-02T09:00:00.00",
+      "modifiedDate": "2025-11-02T09:00:00.00"
+    },
+    {
+      "fileDisplayName": null,
+      "fileName": "900000012.pdf",
+      "docTypeFriendly_ES": "1098 - Ano Fiscal 2025",
+      "docTypeFriendly": "1098 - Tax Year 2025",
+      "docType": "TAX FORM",
+      "docTypeCategory": null,
+      "effectiveUTC": "2026-01-31T00:00:00",
+      "createdUTC": "2026-01-31T00:00:00",
+      "loanId": 1000000000,
+      "docId": 900000012,
+      "docTypeId": 88,
+      "uploaded": "2026-01-31T12:00:00.00",
+      "modifiedDate": "2026-01-31T12:00:00.00"
+    }
+  ]
+}
