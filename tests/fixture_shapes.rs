@@ -83,7 +83,34 @@ fn documents_read_name_category_and_dates() {
     assert!(names.contains(&"Escrow Analysis"));
     for d in &docs {
         assert!(is_iso_date(&d["date"]), "doc has an ISO date: {d:#}");
-        assert!(d["id"].is_i64(), "doc id is numeric: {d:#}");
+        // documents/v1: `id` is a string (was numeric before the profile).
+        assert!(d["id"].is_string(), "doc id is a string: {d:#}");
+        assert!(
+            d["id"].as_str().is_some_and(|s| s.parse::<i64>().is_ok()),
+            "doc id is a stringified number: {d:#}"
+        );
+    }
+}
+
+#[test]
+fn documents_conform_to_the_documents_v1_profile() {
+    // Every parsed doc round-trips into the canonical documents/v1 `Document`,
+    // proving the shape matches the shared profile. PennyMac's provider-extra
+    // `uploaded` field is simply ignored on deserialize (Document does not deny
+    // unknown fields), which is the intended "provider extras stay provider
+    // shaped" behaviour.
+    let docs = parse::documents(&fixture("get_docs.json"));
+    assert_eq!(docs.len(), 3);
+    for d in &docs {
+        let doc: pk_cli_documents::Document = serde_json::from_value(d.clone())
+            .unwrap_or_else(|e| panic!("doc does not conform to documents/v1: {e}\n{d:#}"));
+        assert!(!doc.id.is_empty());
+        assert!(!doc.name.is_empty());
+        // The extra field survives in the raw DTO even though `Document` drops it.
+        assert!(
+            d.get("uploaded").is_some(),
+            "provider-extra `uploaded` kept: {d:#}"
+        );
     }
 }
 
