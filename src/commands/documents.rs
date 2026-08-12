@@ -140,17 +140,16 @@ fn download_all(ctx: &Ctx, args: &DownloadArgs) -> Result<(), CliError> {
 
     let mut written = Vec::with_capacity(downloaded.len());
     let mut bytes_total: u64 = 0;
-    for (doc, bytes) in &downloaded {
-        let id = doc_id(doc).unwrap_or_default();
+    for (doc, id, bytes) in &downloaded {
         let path = if dir.as_os_str().is_empty() {
-            PathBuf::from(file_name_of(doc, id))
+            PathBuf::from(file_name_of(doc, *id))
         } else {
-            dir.join(file_name_of(doc, id))
+            dir.join(file_name_of(doc, *id))
         };
         std::fs::write(&path, bytes)
             .map_err(|e| CliError::Upstream(format!("writing {}: {e}", path.display())))?;
         bytes_total += bytes.len() as u64;
-        written.push(saved_dto(doc, id, &path, bytes.len()));
+        written.push(saved_dto(doc, *id, &path, bytes.len()));
     }
 
     if written.is_empty() {
@@ -248,7 +247,7 @@ fn fetch_doc(ctx: &Ctx, id: i64) -> Result<(Value, Vec<u8>), CliError> {
 
 /// Fetch every document matching the range, as metadata + bytes, in one
 /// reauth-wrapped session.
-fn fetch_all(ctx: &Ctx, range: &RangeArgs) -> Result<Vec<(Value, Vec<u8>)>, CliError> {
+fn fetch_all(ctx: &Ctx, range: &RangeArgs) -> Result<Vec<(Value, i64, Vec<u8>)>, CliError> {
     ctx.read(|c| {
         let docs = c.loan_post(DOCUMENTS)?;
         let targets = paginate(parse::documents(&docs), "date", range);
@@ -258,7 +257,9 @@ fn fetch_all(ctx: &Ctx, range: &RangeArgs) -> Result<Vec<(Value, Vec<u8>)>, CliE
                 continue; // no id → nothing to fetch; a redesign empties, not crashes
             };
             let bytes = c.download_doc(id, &file_name_of(&doc, id))?;
-            out.push((doc, bytes));
+            // Carry the parsed numeric id so the writer never re-derives it (and
+            // never has to guess a fallback when a future refactor changes this).
+            out.push((doc, id, bytes));
         }
         Ok(out)
     })
