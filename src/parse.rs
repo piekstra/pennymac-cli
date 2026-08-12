@@ -289,8 +289,11 @@ pub fn documents(docs: &Value) -> Vec<Value> {
             rows.iter()
                 .map(|d| {
                     let mut m = Map::new();
+                    // documents/v1 canonicalizes `id` as a string (GUID- and
+                    // precision-safe, one shape across providers). PennyMac's
+                    // docId is numeric; stringify it here so the DTO conforms.
                     if let Some(id) = d.get("docId").and_then(Value::as_i64) {
-                        m.insert("id".into(), json!(id));
+                        m.insert("id".into(), json!(id.to_string()));
                     }
                     put(
                         &mut m,

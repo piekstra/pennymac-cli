@@ -141,7 +141,7 @@ fn download_all(ctx: &Ctx, args: &DownloadArgs) -> Result<(), CliError> {
     let mut written = Vec::with_capacity(downloaded.len());
     let mut bytes_total: u64 = 0;
     for (doc, bytes) in &downloaded {
-        let id = doc.get("id").and_then(Value::as_i64).unwrap_or_default();
+        let id = doc_id(doc).unwrap_or_default();
         let path = if dir.as_os_str().is_empty() {
             PathBuf::from(file_name_of(doc, id))
         } else {
@@ -208,7 +208,8 @@ fn open(ctx: &Ctx, id: i64) -> Result<(), CliError> {
         })?;
 
     let payload = json!({
-        "id": id,
+        // documents/v1: `id` is a string (see parse::documents).
+        "id": id.to_string(),
         "name": doc_name(&doc),
         "file": file_name_of(&doc, id),
         "path": path.display().to_string(),
@@ -231,9 +232,10 @@ fn open(ctx: &Ctx, id: i64) -> Result<(), CliError> {
 fn fetch_doc(ctx: &Ctx, id: i64) -> Result<(Value, Vec<u8>), CliError> {
     ctx.read(|c| {
         let docs = c.loan_post(DOCUMENTS)?;
+        let want = id.to_string();
         let doc = parse::documents(&docs)
             .into_iter()
-            .find(|d| d.get("id").and_then(Value::as_i64) == Some(id))
+            .find(|d| d.get("id").and_then(Value::as_str) == Some(want.as_str()))
             .ok_or_else(|| {
                 CliError::NotFound(format!(
                     "document {id} not found — see `pmac documents list`"
@@ -252,7 +254,7 @@ fn fetch_all(ctx: &Ctx, range: &RangeArgs) -> Result<Vec<(Value, Vec<u8>)>, CliE
         let targets = paginate(parse::documents(&docs), "date", range);
         let mut out = Vec::with_capacity(targets.len());
         for doc in targets {
-            let Some(id) = doc.get("id").and_then(Value::as_i64) else {
+            let Some(id) = doc_id(&doc) else {
                 continue; // no id → nothing to fetch; a redesign empties, not crashes
             };
             let bytes = c.download_doc(id, &file_name_of(&doc, id))?;
@@ -260,6 +262,15 @@ fn fetch_all(ctx: &Ctx, range: &RangeArgs) -> Result<Vec<(Value, Vec<u8>)>, CliE
         }
         Ok(out)
     })
+}
+
+/// The document's numeric id for the download API. documents/v1 carries `id`
+/// as a string (see `parse::documents`); PennyMac's endpoint keys on the
+/// numeric `docId`, so parse it back here.
+fn doc_id(doc: &Value) -> Option<i64> {
+    doc.get("id")
+        .and_then(Value::as_str)
+        .and_then(|s| s.parse().ok())
 }
 
 fn file_name_of(doc: &Value, id: i64) -> String {
@@ -278,7 +289,8 @@ fn doc_name(doc: &Value) -> String {
 
 fn saved_dto(doc: &Value, id: i64, path: &std::path::Path, bytes: usize) -> Value {
     json!({
-        "id": id,
+        // documents/v1: `id` is a string (see parse::documents).
+        "id": id.to_string(),
         "name": doc_name(doc),
         "category": doc.get("category").cloned().unwrap_or(Value::Null),
         "date": doc.get("date").cloned().unwrap_or(Value::Null),
