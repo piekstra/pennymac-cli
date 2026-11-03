@@ -911,7 +911,7 @@ mod tests {
         });
         let target = format!("{other}/collect");
         let identity = identity_stub(format!("HTTP/1.1 307 Temporary Redirect\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"));
-        let err = signing_in_at(identity).err().expect("refused");
+        let err = signing_in_at(identity).unwrap_err();
         assert!(err.to_string().contains("another host"), "{err}");
         assert!(reached.lock().unwrap().is_empty());
     }
