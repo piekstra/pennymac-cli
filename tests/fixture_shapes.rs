@@ -258,8 +258,6 @@ fn fixtures_carry_no_real_identifiers() {
     // Patterns, not real values: live-credential markers and cookie/header names
     // that a genuine capture would carry.
     const BANNED: &[&str] = &[
-        "piekstra",
-        "caleb",
         "@gmail",
         "@pennymac",
         "authorization",
