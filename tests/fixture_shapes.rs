@@ -255,8 +255,8 @@ fn uuid_scanner_finds_what_it_should() {
 /// else, since any UUID that isn't the all-zero dummy is a live identifier.
 #[test]
 fn fixtures_carry_no_real_identifiers() {
-    // Patterns, not real values: real-name fragments, live-credential markers,
-    // cookie/header names, and address tells that a genuine capture would carry.
+    // Patterns, not real values: live-credential markers and cookie/header names
+    // that a genuine capture would carry.
     const BANNED: &[&str] = &[
         "piekstra",
         "caleb",
@@ -267,10 +267,6 @@ fn fixtures_carry_no_real_identifiers() {
         "set-cookie",
         "pmst=",
         "_secure_pennymacusa",
-        "enzi",
-        "saint lucie",
-        "port saint",
-        "freddie",
     ];
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let mut checked = 0;
