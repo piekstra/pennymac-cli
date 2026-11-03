@@ -151,10 +151,11 @@ impl Portal {
     /// Replay a cached session from the keychain. Not verified here; the first
     /// read surfaces expiry.
     pub fn from_cached_session(cfg: &Config, creds: &CredentialStore) -> Result<Self, CliError> {
+        // First, so a refused URL never costs a keychain read.
+        let mut portal = Portal::new(cfg)?;
         let session = creds.get(SESSION_ACCOUNT)?.ok_or_else(|| {
             CliError::Auth("no portal session stored — run `pmac auth login`".into())
         })?;
-        let mut portal = Portal::new(cfg)?;
         portal.seed_bundle(&portal.base.clone(), session.expose());
         portal.sync = Some(SessionSync {
             creds: CredentialStore::new(creds.service()),
