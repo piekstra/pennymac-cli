@@ -245,3 +245,23 @@ fn writes_lists_only_this_cli_in_error_messages() {
     let text = String::from_utf8_lossy(&out.get_output().stdout);
     assert!(text.contains("pmac") || text.contains("api"));
 }
+
+#[test]
+fn api_refuses_a_plain_http_url_before_the_keychain() {
+    pmac()
+        .args(["api", "http://mypennymac.example.invalid/api/loan/loans"])
+        .assert()
+        .code(2)
+        .stderr(contains("only https is allowed"));
+}
+
+#[test]
+fn config_set_refuses_a_url_off_https() {
+    for key in ["base_url", "identity_url"] {
+        pmac()
+            .args(["config", "set", key, "http://portal.example.invalid"])
+            .assert()
+            .code(2)
+            .stderr(contains("only https is allowed"));
+    }
+}

@@ -33,6 +33,7 @@ use std::cell::RefCell;
 use std::sync::Arc;
 use std::time::Duration;
 
+use pk_cli_core::transport::{require_secure_url, secure_redirects};
 use pk_cli_core::CliError;
 use pk_cli_secrets::{CredentialStore, Secret};
 use reqwest::cookie::CookieStore;
@@ -97,6 +98,25 @@ struct SessionSync {
     last: RefCell<String>,
 }
 
+/// Refuse an absolute URL off `https` for `api`, before a session exists. A path
+/// under the portal host passes: the base URL was checked when the client was built.
+pub fn check_api_target(path: &str) -> Result<(), CliError> {
+    if path.starts_with("http://") {
+        require_secure_url(path)?;
+    }
+    Ok(())
+}
+
+/// A network failure, with what was being done. reqwest's own message quotes the
+/// whole URL, and a redirect's can carry an OAuth code; this names only the origin
+/// and says why a redirect was refused.
+fn upstream(what: &str, e: reqwest::Error) -> CliError {
+    match CliError::from(e) {
+        CliError::Upstream(message) => CliError::Upstream(format!("{what}: {message}")),
+        other => other,
+    }
+}
+
 impl Portal {
     /// A client with an empty cookie jar and no keychain write-back.
     pub fn new(cfg: &Config) -> Result<Self, CliError> {
@@ -105,6 +125,8 @@ impl Portal {
         for u in [&base, &identity] {
             u.parse::<reqwest::Url>()
                 .map_err(|e| CliError::Usage(format!("invalid url {u:?}: {e}")))?;
+            // The password goes to the identity host and the session to the portal.
+            require_secure_url(u)?;
         }
         let jar = Arc::new(reqwest::cookie::Jar::default());
         let http = reqwest::blocking::Client::builder()
@@ -112,6 +134,7 @@ impl Portal {
             .timeout(Duration::from_secs(45))
             .connect_timeout(Duration::from_secs(15))
             .cookie_provider(jar.clone())
+            .redirect(secure_redirects())
             .build()
             .map_err(|e| CliError::Other(format!("failed to build HTTP client: {e}")))?;
         Ok(Portal {
@@ -128,10 +151,11 @@ impl Portal {
     /// Replay a cached session from the keychain. Not verified here; the first
     /// read surfaces expiry.
     pub fn from_cached_session(cfg: &Config, creds: &CredentialStore) -> Result<Self, CliError> {
+        // First, so a refused URL never costs a keychain read.
+        let mut portal = Portal::new(cfg)?;
         let session = creds.get(SESSION_ACCOUNT)?.ok_or_else(|| {
             CliError::Auth("no portal session stored — run `pmac auth login`".into())
         })?;
-        let mut portal = Portal::new(cfg)?;
         portal.seed_bundle(&portal.base.clone(), session.expose());
         portal.sync = Some(SessionSync {
             creds: CredentialStore::new(creds.service()),
@@ -148,13 +172,14 @@ impl Portal {
 
     // ---- URL / cookie helpers ---------------------------------------------
 
-    fn url(&self, path: &str) -> String {
+    fn url(&self, path: &str) -> Result<String, CliError> {
         if path.starts_with("http://") || path.starts_with("https://") {
-            path.to_string()
+            require_secure_url(path)?;
+            Ok(path.to_string())
         } else if path.starts_with('/') {
-            format!("{}{}", self.base.trim_end_matches('/'), path)
+            Ok(format!("{}{}", self.base.trim_end_matches('/'), path))
         } else {
-            format!("{}/{}", self.base.trim_end_matches('/'), path)
+            Ok(format!("{}/{}", self.base.trim_end_matches('/'), path))
         }
     }
 
@@ -254,13 +279,14 @@ impl Portal {
     /// [`LoginOutcome::TwoFactorRequired`] when the portal wants an SMS/email
     /// code (see [`Portal::send_code`] / [`Portal::verify_code`]).
     pub fn login(&self, username: &str, password: &Secret) -> Result<LoginOutcome, CliError> {
-        let signin =
-            self.http.get(self.authorize_url()).send().map_err(|e| {
-                CliError::Upstream(format!("fetching the sign-in page failed: {e}"))
-            })?;
+        let signin = self
+            .http
+            .get(self.authorize_url())
+            .send()
+            .map_err(|e| upstream("fetching the sign-in page failed", e))?;
         let signin_html = signin
             .text()
-            .map_err(|e| CliError::Upstream(format!("reading the sign-in page: {e}")))?;
+            .map_err(|e| upstream("reading the sign-in page", e))?;
         let token = csrf_token(&signin_html).ok_or_else(|| {
             CliError::Upstream(
                 "could not find the login form token — the portal may have changed".into(),
@@ -282,7 +308,7 @@ impl Portal {
             .header("Origin", self.identity.trim_end_matches('/'))
             .form(&form)
             .send()
-            .map_err(|e| CliError::Upstream(format!("login request failed: {e}")))?;
+            .map_err(|e| upstream("login request failed", e))?;
 
         let final_url = resp.url().clone();
         let status = resp.status();
@@ -321,9 +347,7 @@ impl Portal {
             .header("Origin", self.identity.trim_end_matches('/'))
             .json(&body)
             .send()
-            .map_err(|e| {
-                CliError::Upstream(format!("requesting a verification code failed: {e}"))
-            })?;
+            .map_err(|e| upstream("requesting a verification code failed", e))?;
         if !resp.status().is_success() {
             return Err(CliError::Upstream(format!(
                 "requesting a verification code returned HTTP {}",
@@ -351,7 +375,7 @@ impl Portal {
             .header("Origin", self.identity.trim_end_matches('/'))
             .json(&body)
             .send()
-            .map_err(|e| CliError::Upstream(format!("verifying the code failed: {e}")))?;
+            .map_err(|e| upstream("verifying the code failed", e))?;
         let status = resp.status();
         let text = resp.text().unwrap_or_default();
         if !status.is_success() {
@@ -372,7 +396,7 @@ impl Portal {
         self.http
             .get(self.authorize_url())
             .send()
-            .map_err(|e| CliError::Upstream(format!("completing the OAuth handoff failed: {e}")))?;
+            .map_err(|e| upstream("completing the OAuth handoff failed", e))?;
         if self.session_bundle().is_none() {
             return Err(CliError::Upstream(
                 "login succeeded but the portal issued no session cookie".into(),
@@ -405,10 +429,10 @@ impl Portal {
         }
         let resp = self
             .http
-            .get(self.url("/api/account/request_token"))
+            .get(self.url("/api/account/request_token")?)
             .header("Accept", "*/*")
             .send()
-            .map_err(|e| CliError::Upstream(format!("request_token failed: {e}")))?;
+            .map_err(|e| upstream("request_token failed", e))?;
         let text = self.handle(resp, "/api/account/request_token")?;
         let v = parse_json(&text, "/api/account/request_token")?;
         if v.get("is_logged_in").and_then(Value::as_bool) != Some(true) {
@@ -450,10 +474,10 @@ impl Portal {
     pub fn account(&self) -> Result<Value, CliError> {
         let resp = self
             .http
-            .get(self.url("/api/account/request_token"))
+            .get(self.url("/api/account/request_token")?)
             .header("Accept", "*/*")
             .send()
-            .map_err(|e| CliError::Upstream(format!("request_token failed: {e}")))?;
+            .map_err(|e| upstream("request_token failed", e))?;
         let text = self.handle(resp, "/api/account/request_token")?;
         parse_json(&text, "/api/account/request_token")
     }
@@ -464,11 +488,11 @@ impl Portal {
         let bearer = self.bearer();
         let resp = self
             .http
-            .get(self.url(path))
+            .get(self.url(path)?)
             .header("Accept", "*/*")
             .bearer_auth(bearer.expose())
             .send()
-            .map_err(|e| CliError::Upstream(format!("GET {path} failed: {e}")))?;
+            .map_err(|e| upstream(&format!("GET {path} failed"), e))?;
         let text = self.handle(resp, path)?;
         self.sync_session();
         parse_json(&text, path)
@@ -484,13 +508,13 @@ impl Portal {
         let bearer = self.bearer();
         let resp = self
             .http
-            .post(self.url(path))
+            .post(self.url(path)?)
             .header("Accept", "*/*")
             .header("Origin", self.base.trim_end_matches('/'))
             .bearer_auth(bearer.expose())
             .json(body)
             .send()
-            .map_err(|e| CliError::Upstream(format!("POST {path} failed: {e}")))?;
+            .map_err(|e| upstream(&format!("POST {path} failed"), e))?;
         let text = self.handle(resp, path)?;
         self.sync_session();
         parse_json(&text, path)
@@ -518,13 +542,13 @@ impl Portal {
         let body = json!({ "docId": doc_id, "loanId": loan, "filName": file_name });
         let resp = self
             .http
-            .post(self.url(path))
+            .post(self.url(path)?)
             .header("Accept", "*/*")
             .header("Origin", self.base.trim_end_matches('/'))
             .bearer_auth(bearer.expose())
             .json(&body)
             .send()
-            .map_err(|e| CliError::Upstream(format!("POST {path} failed: {e}")))?;
+            .map_err(|e| upstream(&format!("POST {path} failed"), e))?;
         let text = self.handle(resp, path)?;
         self.sync_session();
         if text.trim_start().starts_with('<') {
@@ -579,7 +603,7 @@ impl Portal {
         }
         let text = resp
             .text()
-            .map_err(|e| CliError::Upstream(format!("reading response body: {e}")))?;
+            .map_err(|e| upstream("reading response body", e))?;
         if !status.is_success() {
             return Err(CliError::Upstream(format!(
                 "portal HTTP {} for {path}{}",
@@ -791,6 +815,83 @@ mod tests {
     use super::*;
     use crate::config::Config;
 
+    /// A stub on 127.0.0.1. Answers each request with `respond(request)` as a raw
+    /// HTTP response, and keeps each request so a test can see what arrived.
+    fn stub(
+        respond: impl Fn(&str) -> String + Send + 'static,
+    ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = seen.clone();
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                let mut raw = Vec::new();
+                let mut buf = [0u8; 4096];
+                let request = loop {
+                    let n = stream.read(&mut buf).unwrap_or(0);
+                    raw.extend_from_slice(&buf[..n]);
+                    let text = String::from_utf8_lossy(&raw).into_owned();
+                    let complete = text.split_once("\r\n\r\n").is_some_and(|(head, body)| {
+                        let length = head
+                            .lines()
+                            .find_map(|l| {
+                                let (name, value) = l.split_once(':')?;
+                                name.eq_ignore_ascii_case("content-length")
+                                    .then(|| value.trim().parse::<usize>().ok())?
+                            })
+                            .unwrap_or(0);
+                        body.len() >= length
+                    });
+                    if n == 0 || complete {
+                        break text;
+                    }
+                };
+                let response = respond(&request);
+                log.lock().unwrap().push(request);
+                let _ = stream.write_all(response.as_bytes());
+            }
+        });
+        (base, seen)
+    }
+
+    fn redirect_to(location: &str) -> String {
+        format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    }
+
+    #[test]
+    fn a_redirect_that_leaves_https_is_refused() {
+        let (base, seen) = stub(|_| redirect_to("http://www.example.invalid/next"));
+        let err = Portal::new(&Config {
+            base_url: Some(base.clone()),
+            ..Config::default()
+        })
+        .unwrap()
+        .account()
+        .unwrap_err();
+        assert!(err.to_string().contains("leaves https"), "{err}");
+        assert_eq!(seen.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_network_failure_names_the_origin_and_not_the_rest_of_the_url() {
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let e = reqwest::blocking::get(format!("http://127.0.0.1:{port}/acct-xyz?code=dummy"))
+            .unwrap_err();
+        let message = upstream("fetching", e).to_string();
+        assert!(message.contains("fetching: "), "{message}");
+        assert!(message.contains("127.0.0.1"), "{message}");
+        for leak in ["acct-xyz", "dummy"] {
+            assert!(!message.contains(leak), "{message}");
+        }
+    }
+
     fn portal() -> Portal {
         Portal::new(&Config::default()).unwrap()
     }
@@ -799,10 +900,34 @@ mod tests {
     fn urls_join_base_and_path() {
         let p = portal();
         assert_eq!(
-            p.url("/api/loan/loans"),
+            p.url("/api/loan/loans").unwrap(),
             "https://mypennymac.pennymac.com/api/loan/loans"
         );
-        assert_eq!(p.url("https://other/y"), "https://other/y");
+        assert_eq!(p.url("https://other/y").unwrap(), "https://other/y");
+    }
+
+    #[test]
+    fn a_plain_http_url_is_refused_before_anything_is_sent() {
+        let err = portal().url("http://other.invalid/y").unwrap_err();
+        assert!(err.to_string().contains("only https is allowed"), "{err}");
+        assert!(portal().url("http://127.0.0.1:9/y").is_ok());
+    }
+
+    #[test]
+    fn a_base_or_identity_url_off_https_is_refused() {
+        for cfg in [
+            Config {
+                base_url: Some("http://portal.invalid".into()),
+                ..Config::default()
+            },
+            Config {
+                identity_url: Some("http://identity.invalid".into()),
+                ..Config::default()
+            },
+        ] {
+            let err = Portal::new(&cfg).err().expect("refused");
+            assert!(err.to_string().contains("only https is allowed"), "{err}");
+        }
     }
 
     #[test]

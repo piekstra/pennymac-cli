@@ -254,6 +254,8 @@ fn login(
     creds: &CredentialStore,
     cfg: &Config,
 ) -> Result<(), CliError> {
+    // The password goes to these hosts, so refuse them before asking for it.
+    Portal::new(cfg)?;
     // A code on the command line belongs to the login that requested it, so
     // resume that parked session rather than starting a fresh one.
     if let Some(code) = &args.code {
@@ -393,6 +395,9 @@ fn config_cmd(cli: &Cli, cmd: &ConfigCmd, store: &ConfigStore) -> Result<(), Cli
             Ok(())
         }
         ConfigCmd::Set { key, value } => {
+            if matches!(key.as_str(), "base_url" | "identity_url") {
+                pk_cli_core::transport::require_secure_url(value)?;
+            }
             let mut cfg: Config = store.load()?;
             match key.as_str() {
                 "base_url" => cfg.base_url = Some(value.clone()),
