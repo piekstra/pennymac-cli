@@ -117,6 +117,24 @@ fn upstream(what: &str, e: reqwest::Error) -> CliError {
     }
 }
 
+/// The sign-in crosses hosts on its 302s, from the identity host to mypennymac, so
+/// `same_host_redirects` would break it. A 302 drops a POST's body. A 307 or 308
+/// re-sends it, password included, so only those have to stay on the host.
+fn portal_redirects() -> reqwest::redirect::Policy {
+    let secure = secure_redirects();
+    reqwest::redirect::Policy::custom(move |attempt| {
+        let keeps_body = matches!(attempt.status().as_u16(), 307 | 308);
+        let moved = attempt.previous().last().is_some_and(|from| {
+            from.host_str() != attempt.url().host_str()
+                || from.port_or_known_default() != attempt.url().port_or_known_default()
+        });
+        if keeps_body && moved {
+            return attempt.error("refusing to re-send a request body to another host");
+        }
+        secure.redirect(attempt)
+    })
+}
+
 impl Portal {
     /// A client with an empty cookie jar and no keychain write-back.
     pub fn new(cfg: &Config) -> Result<Self, CliError> {
@@ -134,7 +152,7 @@ impl Portal {
             .timeout(Duration::from_secs(45))
             .connect_timeout(Duration::from_secs(15))
             .cookie_provider(jar.clone())
-            .redirect(secure_redirects())
+            .redirect(portal_redirects())
             .build()
             .map_err(|e| CliError::Other(format!("failed to build HTTP client: {e}")))?;
         Ok(Portal {
@@ -859,6 +877,56 @@ mod tests {
 
     fn redirect_to(location: &str) -> String {
         format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    }
+
+    /// The sign-in page on a GET, and `post` as the answer to the password POST.
+    fn identity_stub(post: String) -> String {
+        let page = "<meta name=\"csrf-token\" content=\"dummy\" />";
+        let (base, _) = stub(move |request| {
+            if request.starts_with("POST") {
+                post.clone()
+            } else {
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{page}",
+                    page.len()
+                )
+            }
+        });
+        base
+    }
+
+    fn signing_in_at(identity: String) -> Result<LoginOutcome, CliError> {
+        Portal::new(&Config {
+            identity_url: Some(identity),
+            ..Config::default()
+        })
+        .unwrap()
+        .login("user", &Secret::new("dummy-password"))
+    }
+
+    #[test]
+    fn a_password_is_not_re_sent_to_another_host_on_a_307() {
+        let (other, reached) = stub(|_| {
+            "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string()
+        });
+        let target = format!("{other}/collect");
+        let identity = identity_stub(format!("HTTP/1.1 307 Temporary Redirect\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"));
+        let err = signing_in_at(identity).unwrap_err();
+        assert!(err.to_string().contains("another host"), "{err}");
+        assert!(reached.lock().unwrap().is_empty());
+    }
+
+    /// The real sign-in crosses to mypennymac on a 302, which drops the body.
+    #[test]
+    fn a_302_to_another_host_is_followed_without_the_password() {
+        let (other, reached) = stub(|_| {
+            "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string()
+        });
+        let identity = identity_stub(redirect_to(&format!("{other}/callback")));
+        let _ = signing_in_at(identity);
+        let reached = reached.lock().unwrap();
+        assert_eq!(reached.len(), 1);
+        assert!(reached[0].starts_with("GET /callback"), "{}", reached[0]);
     }
 
     #[test]
