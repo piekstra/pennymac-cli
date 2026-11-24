@@ -22,7 +22,7 @@ unimplemented.
 > it complies with any agreement you have with them. It only ever logs in as
 > **you**, with **your** credentials, to read **your own** account.
 >
-> Provided as-is, with no warranty, under the licenses below. Use at your own
+> Provided as-is, with no warranty, under the license below. Use at your own
 > risk.
 
 Conforms to the **piekstra-cli/1** spec: `--json` on every command, standard
@@ -151,5 +151,6 @@ Tests are fully offline; portal data lives as scrubbed fixtures under
 
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your
-option.
+Copyright (C) 2026 Caleb Piekstra. Licensed under the GNU Affero General Public
+License, version 3 only (AGPL-3.0-only); see [LICENSE](LICENSE). Releases up to
+and including v0.2.3 were published under MIT OR Apache-2.0.
